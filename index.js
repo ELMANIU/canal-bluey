@@ -9,301 +9,611 @@ const EPISODIOS = [
   }
 ];
 
-const EPOCH = Date.UTC(2026, 0, 1, 0, 0, 0) / 1000;
-const LIVE_WINDOW = 8;
 
-función asíncrona loadEpisode(episode, episodeIndex) {
-  const respuesta = esperar a obtener (episodio.url, {
-    cf: { cacheTtl: 60, cacheEverything: true }
+const EPOCH = Date.UTC(2026, 0, 1, 0, 0, 0) / 1000;
+
+const LIVE_WINDOW = 45;
+
+
+// Cache global Worker
+let scheduleCache = null;
+let scheduleCacheTime = 0;
+
+
+// ===============================
+// CARGAR SEGMENTOS HLS
+// ===============================
+
+async function loadEpisode(ep, episodeIndex) {
+
+  const response = await fetch(ep.URL, {
+    cf: {
+      cacheTtl: 300,
+      cacheEverything: true
+    }
   });
 
-  si (!respuesta.ok) {
-    throw new Error(`No se pudo cargar ${episode.name} (${response.status})`);
-  }
 
-  const texto = esperar respuesta.texto();
-  const base = new URL(".", episode.url);
-  const regex = /#EXTINF:([\d.]+),\s*\n([^#\r\n]+)/g;
-
-  const segmentos = [];
-  dejar coincidencia;
-
-  mientras ((match = regex.exec(text)) !== null) {
-    segmentos.push({
-      duración: Número(coincidencia[1]),
-      uri: nueva URL(match[2].trim(), base).href,
-      índice de episodios,
-      Nombre del episodio: episode.name,
-      localIndex: segmentos.longitud
-    });
-  }
-
-  si (!longitud de segmentos) {
-    throw new Error(`${episode.name} no contiene segmentos HLS`);
-  }
-
-  segmentos de retorno;
-}
-
-función asíncrona buildSchedule() {
-  const episodeLists = await Promise.all(
-    EPISODIOS.map((episodio, índice) => cargarEpisodio(episodio, índice))
-  );
-
-  const segmentos = episodeLists.flat();
-  const inicios = [];
-  const episodeDurations = [];
-
-  sea ​​totalDuration = 0;
-  sea ​​targetDuration = 1;
-
-  para (lista constante de episodeLists) {
-    Duración de episodios.push(
-      lista.reduce((suma, segmento) => suma + segmento.duración, 0)
+  if (!response.ok) {
+    throw new Error(
+      `No se pudo cargar ${ep.nombre}`
     );
   }
 
-  para (const segmento de segmentos) {
-    comienza.push(duración total);
-    duraciónTotal += duraciónSegmento;
-    targetDuration = Math.max(targetDuration, Math.ceil(segment.duration));
+
+  const text = await response.text();
+
+  const base = new URL(".", ep.URL);
+
+
+  const regex =
+    /#EXTINF:([\d.]+),\s*\n([^#\r\n]+)/g;
+
+
+  const segments = [];
+
+  let match;
+
+
+  while ((match = regex.exec(text)) !== null) {
+
+    segments.push({
+
+      duration: Number(match[1]),
+
+      uri:
+        new URL(
+          match[2].trim(),
+          base
+        ).href,
+
+      episodeIndex,
+
+      episodeName: ep.nombre,
+
+      localIndex: segments.length
+
+    });
+
   }
 
-  devolver {
-    Listas de episodios,
-    segmentos,
-    comienza,
-    Duración de los episodios,
-    duración total,
-    duración objetivo
+
+  if (!segments.length) {
+
+    throw new Error(
+      `${ep.nombre} no tiene segmentos`
+    );
+
+  }
+
+
+  return segments;
+
+}
+
+
+
+// ===============================
+// CREAR CANAL
+// ===============================
+
+async function buildSchedule(){
+
+
+  const episodeLists =
+    await Promise.all(
+      EPISODIOS.map(
+        (e,i)=>loadEpisode(e,i)
+      )
+    );
+
+
+  const segments =
+    episodeLists.flat();
+
+
+  const starts=[];
+
+  const episodeDurations=[];
+
+
+  let totalDuration=0;
+
+  let targetDuration=1;
+
+
+
+  for(const list of episodeLists){
+
+    const duration =
+      list.reduce(
+        (a,b)=>a+b.duration,
+        0
+      );
+
+
+    episodeDurations.push(duration);
+
+  }
+
+
+
+  for(const seg of segments){
+
+    starts.push(totalDuration);
+
+    totalDuration += seg.duration;
+
+
+    targetDuration =
+      Math.max(
+        targetDuration,
+        Math.ceil(seg.duration)
+      );
+
+  }
+
+
+
+  return {
+
+    episodeLists,
+
+    segments,
+
+    starts,
+
+    totalDuration,
+
+    targetDuration,
+
+    episodeDurations
+
   };
+
 }
 
-función obtenerEstadoEnVivo(horario, ahoraSegundos) {
-  const transcurrido = Math.max(0, nowSeconds - EPOCH);
-  const loop = Math.floor(elapsed / schedule.totalDuration);
-  const posición = transcurrido % schedule.totalDuration;
 
-  sea ​​currentIndex = schedule.segments.length - 1;
 
-  para (sea i = 0; i < schedule.segments.length; i++) {
-    const inicio = programa.inicios[i];
-    const fin = inicio + schedule.segments[i].duration;
+// ===============================
+// CACHE
+// ===============================
 
-    si (posición >= inicio && posición < fin) {
-      índiceactual = i;
-      romper;
-    }
+async function getSchedule(){
+
+
+  const now = Date.now();
+
+
+  if(
+    !scheduleCache ||
+    now - scheduleCacheTime > 300000
+  ){
+
+    scheduleCache =
+      await buildSchedule();
+
+
+    scheduleCacheTime = now;
+
   }
 
-  devolver {
-    posición,
-    índice actual,
-    índice absoluto: bucle * longitud de segmentos programados + índice actual
+
+  return scheduleCache;
+
+}
+
+
+
+// ===============================
+// POSICIÓN ACTUAL DEL CANAL
+// ===============================
+
+function getLiveState(schedule, now){
+
+
+  const elapsed =
+    Math.max(
+      0,
+      now - EPOCH
+    );
+
+
+  const position =
+    elapsed %
+    schedule.totalDuration;
+
+
+
+  let index =
+    schedule.segments.length-1;
+
+
+
+  for(
+    let i=0;
+    i<schedule.segments.length;
+    i++
+  ){
+
+    const start =
+      schedule.starts[i];
+
+
+    const end =
+      start +
+      schedule.segments[i].duration;
+
+
+
+    if(
+      position >= start &&
+      position < end
+    ){
+
+      index=i;
+
+      break;
+
+    }
+
+  }
+
+
+
+  return {
+
+    position,
+
+    currentIndex:index
+
   };
+
 }
 
-función transicionesPorCiclo(segmentos) {
-  sea ​​contador = 0;
 
-  para (sea i = 1; i < segments.length; i++) {
-    Si (segmentos[i].episodioIndex !== segmentos[i - 1].episodioIndex) {
-      recuento++;
+
+// ===============================
+// DISCONTINUIDADES
+// ===============================
+
+function countDiscontinuities(
+  segments,
+  absoluteIndex
+){
+
+  let total=0;
+
+
+  const count =
+    segments.length;
+
+
+  const cycles =
+    Math.floor(
+      absoluteIndex/count
+    );
+
+
+  for(
+    let c=0;
+    c<cycles;
+    c++
+  ){
+
+    for(
+      let i=1;
+      i<count;
+      i++
+    ){
+
+      if(
+        segments[i].episodeIndex !==
+        segments[i-1].episodeIndex
+      ){
+
+        total++;
+
+      }
+
     }
+
   }
 
-  si (
-    segmentos.longitud > 1 &&
-    segmentos[0].episodeIndex !== segmentos[segmentos.longitud - 1].episodeIndex
-  ) {
-    recuento++;
-  }
 
-  devolver recuento;
-}
+  const rest =
+    absoluteIndex % count;
 
-función discontinuidadesAntes(segmentos, índiceAbsoluto) {
-  Si (absoluteIndex <= 0 || segments.length < 2) devuelve 0;
 
-  const count = segmentos.length;
-  const perCycle = transitionsPerCycle(segments);
-  const fullCycles = Math.floor(absoluteIndex / count);
-  const resto = índice absoluto % recuento;
 
-  sea ​​total = fullCycles * perCycle;
+  for(
+    let i=1;
+    i<=rest;
+    i++
+  ){
 
-  para (sea i = 1; i <= resto; i++) {
-    Si (segmentos[i].episodioIndex !== segmentos[i - 1].episodioIndex) {
+    if(
+      segments[i].episodeIndex !==
+      segments[i-1].episodeIndex
+    ){
+
       total++;
+
     }
+
   }
 
-  devolver total;
+
+  return total;
+
 }
 
-función construirListaDeReproducciónEnVivo(horario, estado) {
-  const { segmentos, inicios, duración total, duración objetivo } = programación;
-  const count = segmentos.length;
 
-  // Solo segmentos ya terminados. El manifiesto se va moviendo con el reloj.
-  const lastAbsolute = Math.max(0, state.absoluteIndex - 1);
-  const firstAbsolute = Math.max(0, lastAbsolute - (LIVE_WINDOW - 1));
 
-  lista de reproducción =
-    "#EXTM3U\n" +
-    "#EXT-X-VERSION:3\n" +
-    `#EXT-X-TARGETDURATION:${targetDuration}\n` +
-    `#EXT-X-MEDIA-SEQUENCE:${firstAbsolute}\n` +
-    `#EXT-X-DISCONTINUITY-SEQUENCE:${discontinuitiesBefore(segments, firstAbsolute)}\n`;
+// ===============================
+// LIVE PLAYLIST
+// ===============================
 
-  sea ​​previousEpisode = null;
+function buildLivePlaylist(
+  schedule,
+  state
+){
 
-  para (sea absoluto = primerAbsoluto; absoluto <= últimoAbsoluto; absoluto++) {
-    const índice = ((conteo absoluto) + conteo) % conteo;
-    const ciclo = Math.floor(absoluto / conteo);
-    const segmento = segmentos[índice];
 
-    si (
+  const {
+
+    segments,
+    starts,
+    totalDuration,
+    targetDuration
+
+  } = schedule;
+
+
+
+  const count =
+    segments.length;
+
+
+
+  const last =
+    Math.max(
+      0,
+      state.currentIndex
+    );
+
+
+  const first =
+    Math.max(
+      0,
+      last - LIVE_WINDOW + 1
+    );
+
+
+
+  let playlist =
+`#EXTM3U
+#EXT-X-VERSION:3
+#EXT-X-TARGETDURATION:${targetDuration}
+#EXT-X-MEDIA-SEQUENCE:${first}
+#EXT-X-DISCONTINUITY-SEQUENCE:${countDiscontinuities(
+segments,
+first
+)}
+`;
+
+
+
+  let previousEpisode=null;
+
+
+
+  for(
+    let absolute=first;
+    absolute<=last;
+    absolute++
+  ){
+
+
+    const index =
+      ((absolute % count)+count)%count;
+
+
+
+    const segment =
+      segments[index];
+
+
+
+    if(
       previousEpisode !== null &&
-      segmento.episodioIndex !== episodioAnterior
-    ) {
-      lista de reproducción += "#EXT-X-DISCONTINUITY\n";
+      previousEpisode !== segment.episodeIndex
+    ){
+
+      playlist +=
+      "#EXT-X-DISCONTINUITY\n";
+
     }
 
-    episodio anterior = segmento.índiceepisodio;
 
-    const programTime = EPOCH + cycle * totalDuration + starts[index];
 
-    lista de reproducción +=
-      `#EXT-X-PROGRAM-DATE-TIME:${new Date(programTime * 1000).toISOString()}\n` +
-      `#EXTINF:${segment.duration.toFixed(6)},\n` +
-      `${segment.uri}\n`;
+    previousEpisode =
+      segment.episodeIndex;
+
+
+
+    playlist +=
+`#EXT-X-PROGRAM-DATE-TIME:${new Date(
+(
+EPOCH +
+(
+Math.floor(absolute/count)
+*
+totalDuration
++
+starts[index]
+)
+)
+*1000
+).toISOString()}
+#EXTINF:${segment.duration.toFixed(6)},
+${segment.uri}
+`;
+
   }
 
-  lista de reproducción de regreso;
+
+
+  return playlist;
+
 }
 
-// Esta prueba NO es live. Es una lista de reproducción VOD corta que contiene el final
-// de E01 y el inicio de E02. Sirve únicamente para comprobar que el cambio
-// entre archivos es continuo y que el decodificador acepta #EXT-X-DISCONTINUITY.
-función buildTransitionTest(schedule) {
-  const e1 = schedule.episodeLists[0];
-  const e2 = schedule.episodeLists[1];
 
-  const tail = e1.slice(-4);
-  const head = e2.slice(0, 6);
-  const todo = [...cola, ...cabeza];
 
-  lista de reproducción =
-    "#EXTM3U\n" +
-    "#EXT-X-VERSION:3\n" +
-    `#EXT-X-TARGETDURATION:${schedule.targetDuration}\n` +
-    "#EXT-X-MEDIA-SEQUENCE:0\n" +
-    "#EXT-X-PLAYLIST-TYPE:VOD\n";
+// ===============================
+// HEADERS
+// ===============================
 
-  sea ​​previousEpisode = null;
+function hlsHeaders(){
 
-  para (segmento constante de todos) {
-    si (
-      previousEpisode !== null &&
-      segmento.episodioIndex !== episodioAnterior
-    ) {
-      lista de reproducción += "#EXT-X-DISCONTINUITY\n";
-    }
+return {
 
-    episodio anterior = segmento.índiceepisodio;
+"content-type":
+"application/vnd.apple.mpegurl",
 
-    lista de reproducción +=
-      `#EXTINF:${segment.duration.toFixed(6)},\n` +
-      `${segment.uri}\n`;
-  }
+"cache-control":
+"no-store",
 
-  lista de reproducción += "#EXT-X-ENDLIST\n";
-  lista de reproducción de regreso;
+"access-control-allow-origin":
+"*"
+
+};
+
 }
 
-función hlsHeaders() {
-  devolver {
-    "content-type": "application/vnd.apple.mpegurl",
-    "cache-control": "no-store, no-cache, must-revalidate, max-age=0",
-    "access-control-allow-origin": "*"
-  };
+
+
+// ===============================
+// WORKER
+// ===============================
+
+
+export default {
+
+
+async fetch(request){
+
+
+try{
+
+
+const url =
+new URL(request.url);
+
+
+
+const schedule =
+await getSchedule();
+
+
+
+const state =
+getLiveState(
+schedule,
+Date.now()/1000
+);
+
+
+
+if(
+url.pathname === "/live.m3u8"
+){
+
+return new Response(
+
+buildLivePlaylist(
+schedule,
+state
+),
+
+{
+headers:hlsHeaders()
 }
 
-exportar por defecto {
-  obtención asíncrona(solicitud) {
-    const url = nueva URL(solicitud.url);
+);
 
-    intentar {
-      si (url.pathname === "/") {
-        devolver nueva Respuesta(
-          "Canal Bluey 24/7\n\n" +
-          "Canal: /live.m3u8\n" +
-          "Estado: /status\n" +
-          "Prueba E01 -> E02: /test-transition.m3u8",
-          {
-            encabezados: {
-              "content-type": "text/plain; charset=utf-8",
-              "control-caché": "sin-almacenar",
-              "access-control-allow-origin": "*"
-            }
-          }
-        );
-      }
+}
 
-      const schedule = await buildSchedule();
-      const ahora = Fecha.ahora() / 1000;
-      const estado = obtenerEstadoEnVivo(horario, ahora);
 
-      si (url.pathname === "/live.m3u8") {
-        devolver nueva Respuesta(buildLivePlaylist(schedule, state), {
-          encabezados: hlsHeaders()
-        });
-      }
 
-      si (url.pathname === "/test-transition.m3u8") {
-        return new Response(buildTransitionTest(schedule), {
-          encabezados: hlsHeaders()
-        });
-      }
+if(
+url.pathname === "/status"
+){
 
-      if (url.pathname === "/status") {
-        const segmento = schedule.segments[state.currentIndex];
-        const episodeStart = schedule.starts[state.currentIndex];
+const seg =
+schedule.segments[
+state.currentIndex
+];
 
-        devolver Response.json(
-          {
-            canal: "Bluey 24/7",
-            episodioactual: segmento.nombreDelEpisodio,
-            segmentoactual: segmento.índicelocal,
-            segundosEnSegmentoActual: Número(
-              Math.max(0, estado.posición - inicioEpisodio).toFixed(2)
-            ),
-            totalLoopSeconds: Number(schedule.totalDuration.toFixed(3)),
-            episodeDurations: schedule.episodeDurations.map((seconds, i) => ({
-              episodio: EPISODIOS[i].nombre,
-              segundos: Número(segundos.toFixed(3))
-            }))
-          },
-          {
-            encabezados: {
-              "control-caché": "sin-almacenar",
-              "access-control-allow-origin": "*"
-            }
-          }
-        );
-      }
 
-      return new Response("No encontrado", { status: 404 });
-    } catch (error) {
-      return new Response(`Error canal: ${error.message}`, {
-        estado: 500,
-        encabezados: {
-          "content-type": "text/plain; charset=utf-8",
-          "control-caché": "sin-almacenar",
-          "access-control-allow-origin": "*"
-        }
-      });
-    }
-  }
+return Response.json({
+
+channel:
+"Bluey 24/7",
+
+current:
+seg.episodeName,
+
+segment:
+seg.localIndex,
+
+position:
+state.position.toFixed(2)
+
+},
+
+{
+
+headers:{
+"cache-control":"no-store",
+"access-control-allow-origin":"*"
+}
+
+});
+
+}
+
+
+
+return new Response(
+
+"Bluey 24/7 LIVE\n/live.m3u8"
+
+);
+
+
+
+
+}catch(err){
+
+
+return new Response(
+
+"ERROR: "+err.message,
+
+{
+status:500,
+headers:{
+"content-type":"text/plain"
+}
+}
+
+);
+
+
+}
+
+
+}
+
 };
