@@ -10,482 +10,119 @@ const EPISODIOS = [
 ];
 
 
-const EPOCH = Date.UTC(2026, 0, 1, 0, 0, 0) / 1000;
-
-const LIVE_WINDOW = 45;
+const EPOCH = Date.UTC(2026,0,1,0,0,0)/1000;
 
 
-// Cache global Worker
-let scheduleCache = null;
-let scheduleCacheTime = 0;
+// Buffer
+const BACK_BUFFER = 30;
+const FORWARD_BUFFER = 6;
 
 
-// ===============================
-// CARGAR SEGMENTOS HLS
-// ===============================
-
-async function loadEpisode(ep, episodeIndex) {
-
-  const response = await fetch(ep.URL, {
-    cf: {
-      cacheTtl: 300,
-      cacheEverything: true
-    }
-  });
+let CACHE = null;
+let CACHE_TIME = 0;
 
 
-  if (!response.ok) {
-    throw new Error(
-      `No se pudo cargar ${ep.nombre}`
-    );
-  }
+
+async function loadEpisode(ep,index){
+
+const res = await fetch(ep.URL,{
+cf:{
+cacheTtl:3600,
+cacheEverything:true
+}
+});
 
 
-  const text = await response.text();
-
-  const base = new URL(".", ep.URL);
-
-
-  const regex =
-    /#EXTINF:([\d.]+),\s*\n([^#\r\n]+)/g;
+if(!res.ok)
+throw new Error(ep.nombre);
 
 
-  const segments = [];
+const text = await res.text();
 
-  let match;
-
-
-  while ((match = regex.exec(text)) !== null) {
-
-    segments.push({
-
-      duration: Number(match[1]),
-
-      uri:
-        new URL(
-          match[2].trim(),
-          base
-        ).href,
-
-      episodeIndex,
-
-      episodeName: ep.nombre,
-
-      localIndex: segments.length
-
-    });
-
-  }
+const base=new URL(".",ep.URL);
 
 
-  if (!segments.length) {
-
-    throw new Error(
-      `${ep.nombre} no tiene segmentos`
-    );
-
-  }
+const regex=/#EXTINF:([\d.]+),\s*\n([^#\r\n]+)/g;
 
 
-  return segments;
+let match;
+
+let segments=[];
+
+
+while((match=regex.exec(text))!==null){
+
+segments.push({
+
+duration:Number(match[1]),
+
+uri:new URL(
+match[2].trim(),
+base
+).href,
+
+episodeIndex:index,
+
+episodeName:ep.nombre,
+
+localIndex:segments.length
+
+});
 
 }
 
 
+return segments;
 
-// ===============================
-// CREAR CANAL
-// ===============================
+}
+
+
 
 async function buildSchedule(){
 
 
-  const episodeLists =
-    await Promise.all(
-      EPISODIOS.map(
-        (e,i)=>loadEpisode(e,i)
-      )
-    );
+const lists =
+await Promise.all(
+EPISODIOS.map(loadEpisode)
+);
 
 
-  const segments =
-    episodeLists.flat();
+const segments =
+lists.flat();
 
 
-  const starts=[];
+let starts=[];
 
-  const episodeDurations=[];
+let total=0;
 
-
-  let totalDuration=0;
-
-  let targetDuration=1;
+let target=1;
 
 
 
-  for(const list of episodeLists){
+for(const s of segments){
 
-    const duration =
-      list.reduce(
-        (a,b)=>a+b.duration,
-        0
-      );
+starts.push(total);
 
+total+=s.duration;
 
-    episodeDurations.push(duration);
-
-  }
-
-
-
-  for(const seg of segments){
-
-    starts.push(totalDuration);
-
-    totalDuration += seg.duration;
-
-
-    targetDuration =
-      Math.max(
-        targetDuration,
-        Math.ceil(seg.duration)
-      );
-
-  }
-
-
-
-  return {
-
-    episodeLists,
-
-    segments,
-
-    starts,
-
-    totalDuration,
-
-    targetDuration,
-
-    episodeDurations
-
-  };
+target=Math.max(
+target,
+Math.ceil(s.duration)
+);
 
 }
 
 
-
-// ===============================
-// CACHE
-// ===============================
-
-async function getSchedule(){
-
-
-  const now = Date.now();
-
-
-  if(
-    !scheduleCache ||
-    now - scheduleCacheTime > 300000
-  ){
-
-    scheduleCache =
-      await buildSchedule();
-
-
-    scheduleCacheTime = now;
-
-  }
-
-
-  return scheduleCache;
-
-}
-
-
-
-// ===============================
-// POSICIÓN ACTUAL DEL CANAL
-// ===============================
-
-function getLiveState(schedule, now){
-
-
-  const elapsed =
-    Math.max(
-      0,
-      now - EPOCH
-    );
-
-
-  const position =
-    elapsed %
-    schedule.totalDuration;
-
-
-
-  let index =
-    schedule.segments.length-1;
-
-
-
-  for(
-    let i=0;
-    i<schedule.segments.length;
-    i++
-  ){
-
-    const start =
-      schedule.starts[i];
-
-
-    const end =
-      start +
-      schedule.segments[i].duration;
-
-
-
-    if(
-      position >= start &&
-      position < end
-    ){
-
-      index=i;
-
-      break;
-
-    }
-
-  }
-
-
-
-  return {
-
-    position,
-
-    currentIndex:index
-
-  };
-
-}
-
-
-
-// ===============================
-// DISCONTINUIDADES
-// ===============================
-
-function countDiscontinuities(
-  segments,
-  absoluteIndex
-){
-
-  let total=0;
-
-
-  const count =
-    segments.length;
-
-
-  const cycles =
-    Math.floor(
-      absoluteIndex/count
-    );
-
-
-  for(
-    let c=0;
-    c<cycles;
-    c++
-  ){
-
-    for(
-      let i=1;
-      i<count;
-      i++
-    ){
-
-      if(
-        segments[i].episodeIndex !==
-        segments[i-1].episodeIndex
-      ){
-
-        total++;
-
-      }
-
-    }
-
-  }
-
-
-  const rest =
-    absoluteIndex % count;
-
-
-
-  for(
-    let i=1;
-    i<=rest;
-    i++
-  ){
-
-    if(
-      segments[i].episodeIndex !==
-      segments[i-1].episodeIndex
-    ){
-
-      total++;
-
-    }
-
-  }
-
-
-  return total;
-
-}
-
-
-
-// ===============================
-// LIVE PLAYLIST
-// ===============================
-
-function buildLivePlaylist(
-  schedule,
-  state
-){
-
-
-  const {
-
-    segments,
-    starts,
-    totalDuration,
-    targetDuration
-
-  } = schedule;
-
-
-
-  const count =
-    segments.length;
-
-
-
-  const last =
-    Math.max(
-      0,
-      state.currentIndex
-    );
-
-
-  const first =
-    Math.max(
-      0,
-      last - LIVE_WINDOW + 1
-    );
-
-
-
-  let playlist =
-`#EXTM3U
-#EXT-X-VERSION:3
-#EXT-X-TARGETDURATION:${targetDuration}
-#EXT-X-MEDIA-SEQUENCE:${first}
-#EXT-X-DISCONTINUITY-SEQUENCE:${countDiscontinuities(
-segments,
-first
-)}
-`;
-
-
-
-  let previousEpisode=null;
-
-
-
-  for(
-    let absolute=first;
-    absolute<=last;
-    absolute++
-  ){
-
-
-    const index =
-      ((absolute % count)+count)%count;
-
-
-
-    const segment =
-      segments[index];
-
-
-
-    if(
-      previousEpisode !== null &&
-      previousEpisode !== segment.episodeIndex
-    ){
-
-      playlist +=
-      "#EXT-X-DISCONTINUITY\n";
-
-    }
-
-
-
-    previousEpisode =
-      segment.episodeIndex;
-
-
-
-    playlist +=
-`#EXT-X-PROGRAM-DATE-TIME:${new Date(
-(
-EPOCH +
-(
-Math.floor(absolute/count)
-*
-totalDuration
-+
-starts[index]
-)
-)
-*1000
-).toISOString()}
-#EXTINF:${segment.duration.toFixed(6)},
-${segment.uri}
-`;
-
-  }
-
-
-
-  return playlist;
-
-}
-
-
-
-// ===============================
-// HEADERS
-// ===============================
-
-function hlsHeaders(){
 
 return {
 
-"content-type":
-"application/vnd.apple.mpegurl",
+segments,
 
-"cache-control":
-"no-store",
+starts,
 
-"access-control-allow-origin":
-"*"
+total,
+
+target
 
 };
 
@@ -493,9 +130,181 @@ return {
 
 
 
-// ===============================
-// WORKER
-// ===============================
+async function getSchedule(){
+
+
+if(
+!CACHE ||
+Date.now()-CACHE_TIME>300000
+){
+
+CACHE=await buildSchedule();
+
+CACHE_TIME=Date.now();
+
+}
+
+
+return CACHE;
+
+}
+
+
+
+
+function liveState(schedule){
+
+
+const elapsed =
+(Math.floor(Date.now()/1000)-EPOCH);
+
+
+const position =
+elapsed %
+schedule.total;
+
+
+
+let index=0;
+
+
+for(
+let i=0;
+i<schedule.segments.length;
+i++
+){
+
+let start=schedule.starts[i];
+
+let end=start+
+schedule.segments[i].duration;
+
+
+if(
+position>=start &&
+position<end
+){
+
+index=i;
+break;
+
+}
+
+}
+
+
+return {
+
+index,
+
+position
+
+};
+
+}
+
+
+
+
+function buildPlaylist(schedule,state){
+
+
+const segs=schedule.segments;
+
+const count=segs.length;
+
+
+let current=state.index;
+
+
+
+let first=Math.max(
+0,
+current-BACK_BUFFER
+);
+
+
+let last=Math.min(
+count-1,
+current+FORWARD_BUFFER
+);
+
+
+
+let out=
+`#EXTM3U
+#EXT-X-VERSION:3
+#EXT-X-PLAYLIST-TYPE:EVENT
+#EXT-X-ALLOW-CACHE:NO
+#EXT-X-TARGETDURATION:${schedule.target}
+#EXT-X-MEDIA-SEQUENCE:${first}
+`;
+
+
+
+let previous=null;
+
+
+
+for(
+let i=first;
+i<=last;
+i++
+){
+
+let s=segs[i];
+
+
+if(
+previous!==null &&
+previous!==s.episodeIndex
+){
+
+out+="#EXT-X-DISCONTINUITY\n";
+
+}
+
+
+
+previous=s.episodeIndex;
+
+
+
+out+=
+`#EXT-X-PROGRAM-DATE-TIME:${new Date(
+(EPOCH+schedule.starts[i])*1000
+).toISOString()}
+#EXTINF:${s.duration},
+${s.uri}
+`;
+
+}
+
+
+
+return out;
+
+}
+
+
+
+function headers(){
+
+return {
+
+"content-type":
+"application/vnd.apple.mpegurl",
+
+"cache-control":
+"no-store, no-cache, must-revalidate",
+
+"access-control-allow-origin":"*"
+
+};
+
+}
+
+
 
 
 export default {
@@ -507,39 +316,30 @@ async fetch(request){
 try{
 
 
-const url =
-new URL(request.url);
+const url=new URL(request.url);
 
 
-
-const schedule =
+const schedule=
 await getSchedule();
 
 
-
-const state =
-getLiveState(
-schedule,
-Date.now()/1000
-);
+const state=
+liveState(schedule);
 
 
 
 if(
-url.pathname === "/live.m3u8"
+url.pathname==="/live.m3u8"
 ){
 
 return new Response(
-
-buildLivePlaylist(
+buildPlaylist(
 schedule,
 state
 ),
-
 {
-headers:hlsHeaders()
+headers:headers()
 }
-
 );
 
 }
@@ -547,38 +347,31 @@ headers:hlsHeaders()
 
 
 if(
-url.pathname === "/status"
+url.pathname==="/status"
 ){
 
-const seg =
-schedule.segments[
-state.currentIndex
-];
+const s=
+schedule.segments[state.index];
 
 
 return Response.json({
 
-channel:
-"Bluey 24/7",
+canal:"Bluey 24/7",
 
-current:
-seg.episodeName,
+episodio:s.episodeName,
 
-segment:
-seg.localIndex,
+segmento:s.localIndex,
 
-position:
+posicion:
 state.position.toFixed(2)
 
 },
 
 {
-
 headers:{
 "cache-control":"no-store",
 "access-control-allow-origin":"*"
 }
-
 });
 
 }
@@ -586,30 +379,19 @@ headers:{
 
 
 return new Response(
-
-"Bluey 24/7 LIVE\n/live.m3u8"
-
+"Bluey 24/7\n/live.m3u8"
 );
 
 
 
-
-}catch(err){
-
+}catch(e){
 
 return new Response(
-
-"ERROR: "+err.message,
-
+e.message,
 {
-status:500,
-headers:{
-"content-type":"text/plain"
+status:500
 }
-}
-
 );
-
 
 }
 
