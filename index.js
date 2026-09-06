@@ -11,7 +11,7 @@ const EPISODIOS = [
   },
   {
     nombre: "Bluey S01E02",
-    url: "https://pub-31c3df763d1f4f2bbd2602595581aa82.r2.dev/Bluey/S01e01/bluey%20s02/BlueyS01E02.m3u8",
+    url: "https://hugh.cdn.rumble.cloud/video/fwe2/06/s8/2/G/M/D/V/GMDVA.aaa.mp4",
   },
 ];
 
