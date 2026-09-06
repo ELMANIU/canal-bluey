@@ -25,200 +25,200 @@ const SOURCE_CACHE_TTL_SECONDS = 60 * 60;
 
 // Ventana de reproducción. Se dejan algunos segmentos atrás para permitir
 // retroceder y algunos adelante para que Roku tenga buffer al cambiar de episodio.
-const SEGMENTOS_ATRÁS = 8;
-const SEGMENTOS_ADELANTOS = 4;
+const SEGMENTOS_ATRAS = 15;
+const SEGMENTOS_ADELANTOS = 12;
 
 let scheduleCache = null;
 let scheduleCacheTime = 0;
 let schedulePromise = null;
 
-función errorText(error) {
+function errorText(error) {
   return error instanceof Error ? error.message : String(error);
 }
 
-función resolveUri(uri, baseUrl) {
-  intentar {
-    devolver nueva URL(uri.trim(), baseUrl).href;
-  } atrapar {
+function resolveUri(uri, baseUrl) {
+  try {
+    return new URL(uri.trim(), baseUrl).href;
+  } catch {
     throw new Error(`URI inválida en el M3U8: ${uri}`);
   }
 }
 
 // Convierte URI="segmento.ts" de etiquetas como EXT-X-MAP o EXT-X-KEY a una URI
 // absoluta. Sin esto, el cliente intentaría buscarla dentro del Worker.
-función makeTagAbsolute(etiqueta, baseUrl) {
+function makeTagAbsolute(tag, baseUrl) {
   return tag.replace(/URI\s*=\s*"([^"]+)"/i, (_whole, uri) => {
     return `URI="${resolveUri(uri, baseUrl)}"`;
   });
 }
 
-función parseBandwidth (etiqueta) {
+function parseBandwidth(tag) {
   const match = tag.match(/(?:^|,)BANDWIDTH\s*=\s*(\d+)/i);
-  devolver coincidencia ? Número(coincidencia[1]) : 0;
+  return match ? Number(match[1]) : 0;
 }
 
 // Si el enlace entregado es una playlist maestra, se selecciona la variante de
 // mayor bitrate y luego se procesa como playlist de medios.
-función findBestVariant(texto, baseUrl) {
-  const líneas = texto.split(/\r?\n/);
-  const variantes = [];
+function findBestVariant(text, baseUrl) {
+  const lines = text.split(/\r?\n/);
+  const variants = [];
 
-  para (sea i = 0; i < lines.length; i += 1) {
-    const línea = líneas[i].trim();
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i].trim();
     if (!line.toUpperCase().startsWith("#EXT-X-STREAM-INF:")) continue;
 
-    sea ​​uri = null;
-    para (sea j = i + 1; j < lines.length; j += 1) {
+    let uri = null;
+    for (let j = i + 1; j < lines.length; j += 1) {
       const next = lines[j].trim();
-      si (!siguiente) continuar;
-      si (!next.startsWith("#")) {
+      if (!next) continue;
+      if (!next.startsWith("#")) {
         uri = resolveUri(next, baseUrl);
       }
-      romper;
+      break;
     }
 
     if (uri) variants.push({ uri, bandwidth: parseBandwidth(line) });
   }
 
-  si (!variantes.length) {
+  if (!variants.length) {
     throw new Error("La playlist maestra no contiene variantes de video");
   }
 
-  variantes.ordenar((a, b) => a.ancho de banda - b.ancho de banda);
-  devolver variantes[variantes.length - 1].uri;
+  variants.sort((a, b) => a.bandwidth - b.bandwidth);
+  return variants[variants.length - 1].uri;
 }
 
-función asíncrona fetchPlaylist(url) {
-  const respuesta = esperar a obtener(url, {
+async function fetchPlaylist(url) {
+  const response = await fetch(url, {
     cf: {
       cacheTtl: SOURCE_CACHE_TTL_SECONDS,
-      cacheEverything: verdadero,
+      cacheEverything: true,
     },
   });
 
-  si (!respuesta.ok) {
+  if (!response.ok) {
     throw new Error(`HTTP ${response.status} al cargar ${url}`);
   }
 
-  devolver {
-    texto: esperar respuesta.text(),
-    URL final: respuesta.url || url,
+  return {
+    text: await response.text(),
+    finalUrl: response.url || url,
   };
 }
 
 // Lee una playlist de medios y conserva también MAP, KEY y BYTERANGE cuando
 // existe. Así funciona tanto con segmentos MPEG-TS como con fMP4.
-función asíncrona loadEpisode(episode, episodeIndex, depth = 0) {
-  si (profundidad > 2) {
+async function loadEpisode(episode, episodeIndex, depth = 0) {
+  if (depth > 2) {
     throw new Error(`Demasiadas playlists maestras encadenadas en ${episode.nombre}`);
   }
 
   const loaded = await fetchPlaylist(episode.url);
   const baseUrl = new URL(loaded.finalUrl);
-  const texto = texto cargado;
+  const text = loaded.text;
 
-  si (/#EXT-X-STREAM-INF:/i.test(texto)) {
+  if (/#EXT-X-STREAM-INF:/i.test(text)) {
     const variantUrl = findBestVariant(text, baseUrl);
     return loadEpisode({ ...episode, url: variantUrl }, episodeIndex, depth + 1);
   }
 
-  const líneas = texto.split(/\r?\n/);
-  const segmentos = [];
+  const lines = text.split(/\r?\n/);
+  const segments = [];
   let pendingDuration = null;
   let pendingByteRange = null;
-  sea ​​pendingDiscontinuity = falso;
-  sea ​​currentMapTag = null;
+  let pendingDiscontinuity = false;
+  let currentMapTag = null;
   let currentKeyTag = null;
-  sea ​​localIndex = 0;
+  let localIndex = 0;
 
-  para (const rawLine de líneas) {
-    const línea = rawLine.trim();
-    si (!línea) continuar;
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) continue;
 
     if (line.toUpperCase().startsWith("#EXT-X-MAP:")) {
-      currentMapTag = makeTagAbsolute(línea, baseUrl);
-      continuar;
+      currentMapTag = makeTagAbsolute(line, baseUrl);
+      continue;
     }
 
     if (line.toUpperCase().startsWith("#EXT-X-KEY:")) {
-      currentKeyTag = makeTagAbsolute(línea, baseUrl);
-      continuar;
+      currentKeyTag = makeTagAbsolute(line, baseUrl);
+      continue;
     }
 
     if (line.toUpperCase().startsWith("#EXT-X-BYTERANGE:")) {
-      Rango de bytes pendientes = línea;
-      continuar;
+      pendingByteRange = line;
+      continue;
     }
 
     if (line.toUpperCase() === "#EXT-X-DISCONTINUITY") {
-      DiscontinuidadPendiente = verdadero;
-      continuar;
+      pendingDiscontinuity = true;
+      continue;
     }
 
     if (line.toUpperCase().startsWith("#EXTINF:")) {
       const match = line.match(/^#EXTINF:\s*([0-9]+(?:\.[0-9]+)?)/i);
-      si (!coincidencia) {
+      if (!match) {
         throw new Error(`EXTINF inválido en ${episode.nombre}: ${line}`);
       }
 
       pendingDuration = Number(match[1]);
-      Si (!Number.isFinite(pendingDuration) || pendingDuration <= 0) {
+      if (!Number.isFinite(pendingDuration) || pendingDuration <= 0) {
         throw new Error(`Duración inválida en ${episode.nombre}: ${line}`);
       }
-      continuar;
+      continue;
     }
 
     // Una línea que no comienza con # es la URI del segmento que sigue a EXTINF.
     if (!line.startsWith("#") && pendingDuration !== null) {
-      segmentos.push({
-        duración: pendienteDuración,
-        uri: resolverUri(línea,baseUrl),
+      segments.push({
+        duration: pendingDuration,
+        uri: resolveUri(line, baseUrl),
         mapTag: currentMapTag,
         keyTag: currentKeyTag,
-        rango de bytes: rango de bytes pendientes,
-        Discontinuidad de origen: Discontinuidad pendiente,
-        índice de episodios,
+        byteRange: pendingByteRange,
+        sourceDiscontinuity: pendingDiscontinuity,
+        episodeIndex,
         episodeName: episode.nombre,
-        índice local,
+        localIndex,
       });
 
-      índice local += 1;
+      localIndex += 1;
       pendingDuration = null;
       pendingByteRange = null;
-      DiscontinuidadPendiente = falso;
+      pendingDiscontinuity = false;
     }
   }
 
-  si (!longitud de segmentos) {
+  if (!segments.length) {
     throw new Error(`No se encontraron segmentos en ${episode.nombre}`);
   }
 
-  segmentos de retorno;
+  return segments;
 }
 
-función asíncrona buildSchedule() {
+async function buildSchedule() {
   const episodeLists = await Promise.all(
-    EPISODIOS.map((episodio, índice) => loadEpisode(episodio, índice)),
+    EPISODIOS.map((episode, index) => loadEpisode(episode, index)),
   );
 
-  const segmentos = [];
-  sea ​​total = 0;
-  sea ​​targetDuration = 1;
+  const segments = [];
+  let total = 0;
+  let targetDuration = 1;
 
-  para (const episodeSegments de episodeLists) {
-    para (const sourceSegment de episodeSegments) {
-      const duración = sourceSegment.duration;
-      segmentos.push({
-        ...segmento de origen,
-        inicio: total,
-        fin: total + duración,
+  for (const episodeSegments of episodeLists) {
+    for (const sourceSegment of episodeSegments) {
+      const duration = sourceSegment.duration;
+      segments.push({
+        ...sourceSegment,
+        start: total,
+        end: total + duration,
       });
-      total += duración;
+      total += duration;
       targetDuration = Math.max(targetDuration, Math.ceil(duration));
     }
   }
 
-  Si (!segmentos.longitud || !Número.esFinito(total) || total <= 0) {
+  if (!segments.length || !Number.isFinite(total) || total <= 0) {
     throw new Error("El calendario no tiene una duración válida");
   }
 
@@ -226,152 +226,151 @@ función asíncrona buildSchedule() {
   // una vuelta. Se conservan discontinuidades que ya vinieran en el M3U8 de
   // origen y se añadió una al cambiar de episodio.
   const discontinuitiesBefore = new Array(segments.length + 1).fill(0);
-  para (sea i = 0; i < segments.length; i += 1) {
+  for (let i = 0; i < segments.length; i += 1) {
     const episodeChanged =
-      i > 0 && segmentos[i - 1].episodeIndex !== segmentos[i].episodeIndex;
+      i > 0 && segments[i - 1].episodeIndex !== segments[i].episodeIndex;
     const hasSourceDiscontinuity = Boolean(segments[i].sourceDiscontinuity);
-    discontinuidadesAntes[i + 1] =
-      discontinuidadesAntes[i] +
+    discontinuitiesBefore[i + 1] =
+      discontinuitiesBefore[i] +
       (episodeChanged || hasSourceDiscontinuity ? 1 : 0);
   }
 
-  devolver {
-    segmentos,
+  return {
+    segments,
     total,
-    duración objetivo,
-    playlistVersion: segmentos.some((segmento) => segmento.mapTag)
-      ¿6?
-      : segmentos.some((segmento) => segmento.byteRange)
-        ¿4?
+    targetDuration,
+    playlistVersion: segments.some((segment) => segment.mapTag)
+      ? 6
+      : segments.some((segment) => segment.byteRange)
+        ? 4
         : 3,
-    discontinuidadesAntes,
+    discontinuitiesBefore,
     // Una vuelta incluye las discontinuidades internas y el salto cicloâ†'ciclo.
-    Discontinuidades del ciclo: discontinuidadesAntes[segmentos.longitud] + 1,
+    cycleDiscontinuities: discontinuitiesBefore[segments.length] + 1,
   };
 }
 
-función asíncrona getSchedule() {
-  const ahora = Fecha.ahora();
-  si (scheduleCache && ahora - scheduleCacheTime < SCHEDULE_TTL_MS) {
-    devolver scheduleCache;
+async function getSchedule() {
+  const now = Date.now();
+  if (scheduleCache && now - scheduleCacheTime < SCHEDULE_TTL_MS) {
+    return scheduleCache;
   }
 
   // Evita que muchas solicitudes simultáneas descarguen todos los M3U8 a la vez.
-  si (!schedulePromise) {
+  if (!schedulePromise) {
     schedulePromise = buildSchedule()
       .then((schedule) => {
-        scheduleCache = planificación;
+        scheduleCache = schedule;
         scheduleCacheTime = Date.now();
-        calendario de regreso;
+        return schedule;
       })
       .catch((error) => {
         // Si ya existe un calendario válido, conserva la señal aunque un M3U8
         // tenga un fallo temporal de red. La siguiente solicitud volverá a
         // intentar actualizarlo porque no se modifica ScheduleCacheTime.
-        si (scheduleCache) {
+        if (scheduleCache) {
           console.error("No se pudo actualizar el calendario; se conserva el anterior:", error);
-          devolver scheduleCache;
+          return scheduleCache;
         }
-        lanzar error;
+        throw error;
       })
-      .finalmente(() => {
+      .finally(() => {
         schedulePromise = null;
       });
   }
 
-  Promesa de regreso del cronograma;
+  return schedulePromise;
 }
 
-función obtenerEstadoEnVivo(horario, ahoraSegundos) {
+function getLiveState(schedule, nowSeconds) {
   // Antes del EPOCH la señal queda posicionada en el primer segmento.
-  const transcurrido = Math.max(0, nowSeconds - EPOCH);
-  let ciclo = Math.floor(transcurrido / horario.total);
-  sea ​​posición = transcurrido - ciclo * horario.total;
+  const elapsed = Math.max(0, nowSeconds - EPOCH);
+  let cycle = Math.floor(elapsed / schedule.total);
+  let position = elapsed - cycle * schedule.total;
 
   // Evita que un pequeño error de coma flotante coloque la señal en un
   // segmento inexistente justo al cambiar de vuelta.
-  Si (posición < 0) posición = 0;
-  si (posición >= horario.total) {
-    ciclo += 1;
-    posición = 0;
+  if (position < 0) position = 0;
+  if (position >= schedule.total - 0.05) {
+    cycle += 1;
+    position = 0;
   }
 
-  sea ​​bajo = 0;
-  sea ​​alto = schedule.segments.length - 1;
-  sea ​​índice = alto;
+  let low = 0;
+  let high = schedule.segments.length - 1;
+  let index = high;
 
   // Búsqueda binaria con las duraciones acumuladas reales.
-  mientras (bajo <= alto) {
-    const medio = Math.floor((bajo + alto) / 2);
-    const segmento = schedule.segments[middle];
+  while (low <= high) {
+    const middle = Math.floor((low + high) / 2);
+    const segment = schedule.segments[middle];
 
-    si (posición < segmento.inicio) {
-      alto = medio - 1;
-    } else if (posición >= segmento.fin) {
-      bajo = medio + 1;
-    } demás {
-      índice = medio;
-      romper;
+    if (position < segment.start) {
+      high = middle - 1;
+    } else if (position >= segment.end) {
+      low = middle + 1;
+    } else {
+      index = middle;
+      break;
     }
   }
 
-  devolver {
-    ciclo,
-    posición,
-    índice,
-    absoluto: ciclo * longitud.segmentos.programados + índice,
+  return {
+    cycle,
+    position,
+    index,
+    absolute: cycle * schedule.segments.length + index,
   };
 }
 
-función segmentForAbsolute(horario, absoluto) {
+function segmentForAbsolute(schedule, absolute) {
   const count = schedule.segments.length;
-  const índice = ((conteo absoluto) + conteo) % conteo;
-  devolver schedule.segments[index];
+  const index = ((absolute % count) + count) % count;
+  return schedule.segments[index];
 }
 
-función hasDiscontinuityBefore(schedule, absolute) {
-  Si (absoluto < 0) devolver falso;
+function hasDiscontinuityBefore(schedule, absolute) {
+  if (absolute <= 0) return false;
 
   const count = schedule.segments.length;
-  const índice = recuento absoluto %;
+  const index = absolute % count;
 
-  si (absoluto === 0) {
-    devolver Booleano(schedule.segments[0].sourceDiscontinuity);
+  // Nuevo ciclo: último episodio -> primer episodio
+  if (index === 0) {
+    return true;
   }
 
-  // Cada nueva vuelta empieza con una discontinuidad explícita.
-  Si (índice === 0) devolver verdadero;
-
   const previous = schedule.segments[index - 1];
-  const actual = schedule.segments[index];
-  devolver (
-    índice.episodio.anterior !== índice.episodio.actual ||
-    Booleano(current.sourceDiscontinuity)
+  const current = schedule.segments[index];
+
+  return (
+    previous.episodeIndex !== current.episodeIndex ||
+    Boolean(current.sourceDiscontinuity)
   );
 }
 
-función discontinuitySequenceBefore(schedule, absolute) {
-  Si (absoluto <= 0) devuelve 0;
+function discontinuitySequenceBefore(schedule, absolute) {
+  if (absolute <= 0) return 0;
 
   const count = schedule.segments.length;
-  const ciclo = Math.floor(absoluto / conteo);
-  const índice = absoluto - ciclo * recuento;
+  const cycle = Math.floor(absolute / count);
+  const index = absolute - cycle * count;
 
-  devolver (
-    ciclo * programación.cicloDiscontinuidades +
-    horario.discontinuidadesAntes[índice]
+  return (
+    cycle * schedule.cycleDiscontinuities +
+    schedule.discontinuitiesBefore[index]
   );
 }
 
-función programDateTimeFor(horario, absoluto, segmento) {
-  const ciclo = Math.floor(absoluto / schedule.segments.length);
-  devolver ÉPOCA + ciclo * programa.total + segmento.inicio;
+function programDateTimeFor(schedule, absolute, segment) {
+  const cycle = Math.floor(absolute / schedule.segments.length);
+  return EPOCH + cycle * schedule.total + segment.start;
 }
 
-función construirListaDeReproducciónEnVivo(horario, estado) {
-  const first = Math.max(0, state.absolute - BACK_SEGMENTS);
-  const last = state.absolute + AHEAD_SEGMENTS;
-  const líneas = [
+function buildLivePlaylist(schedule, state) {
+  const first = Math.max(0, state.absolute - 15);
+  const last = state.absolute + 12;
+  const lines = [
     "#EXTM3U",
     `#EXT-X-VERSION:${schedule.playlistVersion}`,
     `#EXT-X-TARGETDURATION:${schedule.targetDuration}`,
@@ -382,12 +381,12 @@ función construirListaDeReproducciónEnVivo(horario, estado) {
   let previousMapTag = null;
   let previousKeyTag = null;
 
-  para (sea absoluto = primero; absoluto <= último; absoluto += 1) {
-    const segmento = segmentoParaAbsoluto(horario, absoluto);
-    const discontinuidad = hasDiscontinuityBefore(programación, absoluto);
+  for (let absolute = first; absolute <= last; absolute += 1) {
+    const segment = segmentForAbsolute(schedule, absolute);
+    const discontinuity = hasDiscontinuityBefore(schedule, absolute);
 
-    si (discontinuidad) {
-      líneas.push("#EXT-X-DISCONTINUITY");
+    if (discontinuity) {
+      lines.push("#EXT-X-DISCONTINUITY");
       // Al cruzar una discontinuidad, el decodificador debe volver a recibir
       // el mapa de inicialización si el origen usa fMP4.
       previousMapTag = null;
@@ -395,25 +394,25 @@ función construirListaDeReproducciónEnVivo(horario, estado) {
       previousKeyTag = null;
     }
 
-    si (segmento.mapTag && segmento.mapTag !== previousMapTag) {
-      líneas.push(segmento.mapTag);
-      previousMapTag = segmento.mapTag;
+    if (segment.mapTag && segment.mapTag !== previousMapTag) {
+      lines.push(segment.mapTag);
+      previousMapTag = segment.mapTag;
     }
 
-    Si (segmento.keyTag !== previousKeyTag) {
+    if (segment.keyTag !== previousKeyTag) {
       // METHOD=NONE limpia una clave de un episodio anterior si el siguiente no
       // está cifrado.
-      líneas.push(segmento.keyTag || "#EXT-X-KEY:METHOD=NONE");
-      previousKeyTag = segmento.keyTag;
+      lines.push(segment.keyTag || "#EXT-X-KEY:METHOD=NONE");
+      previousKeyTag = segment.keyTag;
     }
 
     const pdt = programDateTimeFor(schedule, absolute, segment);
-    líneas.push(`#EXT-X-PROGRAM-DATE-TIME:${new Date(pdt * 1000).toISOString()}`);
+    lines.push(`#EXT-X-PROGRAM-DATE-TIME:${new Date(pdt * 1000).toISOString()}`);
 
     if (segment.byteRange) lines.push(segment.byteRange);
 
-    líneas.push(`#EXTINF:${segmento.duración.toFixed(6)},`);
-    líneas.push(segmento.uri);
+    lines.push(`#EXTINF:${segment.duration.toFixed(6)},`);
+    lines.push(segment.uri);
   }
 
   // No se agrega EXT-X-ENDLIST: esta lista de reproducción es deliberadamente infinita y
@@ -421,8 +420,8 @@ función construirListaDeReproducciónEnVivo(horario, estado) {
   return `${lines.join("\n")}\n`;
 }
 
-función hlsHeaders() {
-  devolver {
+function hlsHeaders() {
+  return {
     "content-type": "application/vnd.apple.mpegurl; charset=utf-8",
     "cache-control": "no-store, no-cache, must-revalidate, max-age=0",
     "cdn-cache-control": "no-store",
@@ -433,10 +432,10 @@ función hlsHeaders() {
   };
 }
 
-función jsonResponse(valor, estado = 200) {
+function jsonResponse(value, status = 200) {
   return new Response(JSON.stringify(value, null, 2), {
-    estado,
-    encabezados: {
+    status,
+    headers: {
       "content-type": "application/json; charset=utf-8",
       "cache-control": "no-store, no-cache, must-revalidate, max-age=0",
       "access-control-allow-origin": "*",
@@ -446,56 +445,56 @@ función jsonResponse(valor, estado = 200) {
   });
 }
 
-exportar por defecto {
-  obtención asíncrona(solicitud) {
-    const url = nueva URL(solicitud.url);
+export default {
+  async fetch(request) {
+    const url = new URL(request.url);
 
-    si (request.method === "OPTIONS") {
+    if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: hlsHeaders() });
     }
 
     if (request.method !== "GET" && request.method !== "HEAD") {
       return new Response("Método no permitido", {
-        estado: 405,
-        encabezados: { ...hlsHeaders(), permitir: "GET, HEAD, OPTIONS" },
+        status: 405,
+        headers: { ...hlsHeaders(), allow: "GET, HEAD, OPTIONS" },
       });
     }
 
-    intentar {
+    try {
       const schedule = await getSchedule();
       // Se conserva la fracción de segundo para que el cambio de segmento no
       // se retrocede hasta un segundo completo cuando termina un episodio.
-      const estado = obtenerEstadoEnVivo(horario, Fecha.ahora() / 1000);
+      const state = getLiveState(schedule, Date.now() / 1000);
 
-      si (url.pathname === "/live.m3u8") {
+      if (url.pathname === "/live.m3u8") {
         const playlist = buildLivePlaylist(schedule, state);
         return new Response(request.method === "HEAD" ? null : playlist, {
-          encabezados: hlsHeaders(),
+          headers: hlsHeaders(),
         });
       }
 
       if (url.pathname === "/status") {
-        const segmento = schedule.segments[state.index];
+        const segment = schedule.segments[state.index];
         return jsonResponse({
-          canal: "Bluey 24/7",
-          episodio: segment.episodeName,
-          segmento: segmento.localIndex,
-          ciclo: ciclo.estado,
-          posicionEnCiclo: Number(state.position.toFixed(3)),
-          duracionDelCiclo: Number(schedule.total.toFixed(3)),
-          mediaSequence: estado.absoluto,
-          siguienteSegmento: segmentForAbsolute(horario, estado.absoluto + 1).uri,
+          channel: "Bluey 24/7",
+          episode: segment.episodeName,
+          segment: segment.localIndex,
+          cycle: state.cycle,
+          positionInCycle: Number(state.position.toFixed(3)),
+          cycleDuration: Number(schedule.total.toFixed(3)),
+          mediaSequence: state.absolute,
+          nextSegment: segmentForAbsolute(schedule, state.absolute + 1).uri,
         });
       }
 
       return new Response("Bluey 24/7 EN VIVO. Usa /live.m3u8", {
-        encabezados: hlsHeaders(),
+        headers: hlsHeaders(),
       });
     } catch (error) {
       console.error("Error en Bluey 24/7:", error);
       return new Response(`Error generando la señal: ${errorText(error)}`, {
-        estado: 502,
-        encabezados: hlsHeaders(),
+        status: 502,
+        headers: hlsHeaders(),
       });
     }
   },
