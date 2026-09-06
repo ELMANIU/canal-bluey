@@ -11,7 +11,7 @@ const EPISODIOS = [
   },
   {
     nombre: "Bluey S01E02",
-    url: "https://hugh.cdn.rumble.cloud/video/fwe2/06/s8/2/G/M/D/V/GMDVA.aaa.mp4",
+    url: "https://hugh.cdn.rumble.cloud/video/fwe2/06/s8/2/G/M/D/V/GMDVA.caa.tar?r_file=chunklist.m3u8&r_type=application%2Fvnd.apple.mpegurl&r_range=166684672-166697264",
   },
 ];
 
