@@ -1,4 +1,4 @@
-// BLUEY 24/7 & GRAVITY FALLS 24/7 - Cloudflare Worker HLS lineal
+// BLUEY 24/7 & GRAVITY FALLS 24/7 & BAJOTERRA 24/7 - Cloudflare Worker HLS lineal
 
 // ============ CONFIGURACIÓN DE CANALES ============
 const CANALES = {
@@ -62,6 +62,28 @@ const CANALES = {
       },
     ],
   },
+  bajoterra: {
+    nombre: "Bajoterra 24/7",
+    epoch: Date.UTC(2024, 6, 1, 0, 0, 0) / 1000,
+    episodios: [
+      {
+        nombre: "Bajoterra S01E01",
+        url: "https://hugh.cdn.rumble.cloud/video/fww1/38/s8/2/A/F/Z/V/AFZVA.haa.tar?r_file=chunklist.m3u8&r_type=application%2Fvnd.apple.mpegurl&r_range=678022144-678035468",
+      },
+      {
+        nombre: "Bajoterra S01E02",
+        url: "https://hugh.cdn.rumble.cloud/video/fwe2/73/s8/2/i/P/Z/V/iPZVA.haa.tar?r_file=chunklist.m3u8&r_type=application%2Fvnd.apple.mpegurl&r_range=678354944-678368272",
+      },
+      {
+        nombre: "Bajoterra S01E03",
+        url: "https://hugh.cdn.rumble.cloud/video/fww1/89/s8/2/2/U/Z/V/2UZVA.haa.tar?r_file=chunklist.m3u8&r_type=application%2Fvnd.apple.mpegurl&r_range=679327232-679340467",
+      },
+      {
+        nombre: "Bajoterra S01E04",
+        url: "https://hugh.cdn.rumble.cloud/video/fww1/21/s8/2/Y/s/0/V/Ys0VA.haa.tar?r_file=chunklist.m3u8&r_type=application%2Fvnd.apple.mpegurl&r_range=679844352-679857677",
+      },
+    ],
+  },
 };
 
 // ============ CONFIGURACIÓN GLOBAL ============
@@ -75,7 +97,7 @@ const scheduleCache = {};
 const scheduleCacheTime = {};
 let schedulePromise = {};
 
-// ============ FUNCIONES AUXILIARES (sin cambios) ============
+// ============ FUNCIONES AUXILIARES ============
 function errorText(error) {
   return error instanceof Error ? error.message : String(error);
 }
@@ -484,7 +506,6 @@ export default {
     // ===== DETECTAR CANAL =====
     let channelKey = null;
     
-    // Ejemplo: /bluey/live.m3u8 o /gravityfalls/live.m3u8
     const pathParts = url.pathname.split('/').filter(p => p);
     if (pathParts.length >= 1) {
       const possibleKey = pathParts[0];
