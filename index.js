@@ -82,6 +82,26 @@ const CANALES = {
         nombre: "Bajoterra S01E04",
         url: "https://hugh.cdn.rumble.cloud/video/fww1/21/s8/2/Y/s/0/V/Ys0VA.haa.tar?r_file=chunklist.m3u8&r_type=application%2Fvnd.apple.mpegurl&r_range=679844352-679857677",
       },
+      {
+        nombre: "Bajoterra S01E05",
+        url: "https://hugh.cdn.rumble.cloud/video/fwe2/c6/s8/2/E/0/4/V/E04VA.haa.tar?r_file=chunklist.m3u8&r_type=application%2Fvnd.apple.mpegurl&r_range=679584768-679598091",
+      },
+{
+        nombre: "Bajoterra S01E06",
+        url: "https://hugh.cdn.rumble.cloud/video/fwe2/68/s8/2/K/1/9/V/K19VA.haa.tar?r_file=chunklist.m3u8&r_type=application%2Fvnd.apple.mpegurl&r_range=677867520-677880839",
+      },
+{
+        nombre: "Bajoterra S01E07",
+        url: "https://hugh.cdn.rumble.cloud/video/fwe2/52/s8/2/i/_/e/W/i_eWA.haa.tar?r_file=chunklist.m3u8&r_type=application%2Fvnd.apple.mpegurl&r_range=677985280-677998601",
+      },
+{
+        nombre: "Bajoterra S01E08",
+        url: "https://hugh.cdn.rumble.cloud/video/fwe2/55/s8/2/w/A/h/W/wAhWA.haa.tar?r_file=chunklist.m3u8&r_type=application%2Fvnd.apple.mpegurl&r_range=679015424-679028756",
+      },
+{
+        nombre: "Bajoterra S01E09",
+        url: "https://hugh.cdn.rumble.cloud/video/fwe2/a0/s8/2/W/H/i/W/WHiWA.haa.tar?r_file=chunklist.m3u8&r_type=application%2Fvnd.apple.mpegurl&r_range=679206912-679220240",
+      },
     ],
   },
 };
