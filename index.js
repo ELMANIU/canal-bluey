@@ -104,6 +104,60 @@ const CANALES = {
       },
     ],
   },
+    scooby: {
+    nombre: "El Show de Scooby-Doo y Scrappy-Doo 24/7",
+    epoch: Date.UTC(2026, 0, 1, 0, 0, 0) / 1000,
+    episodios: [
+      {
+        nombre: "El Show de Scooby-Doo y Scrappy-Doo S01E01",
+        url: "https://hugh.cdn.rumble.cloud/video/fww1/14/s8/2/e/z/q/W/ezqWA.caa.tar?r_file=chunklist.m3u8&r_type=application%2Fvnd.apple.mpegurl&r_range=187162112-187176209",
+      },
+      {
+        nombre: "El Show de Scooby-Doo y Scrappy-Doo S01E02",
+        url: "https://hugh.cdn.rumble.cloud/video/fwe2/cd/s8/2/K/A/q/W/KAqWA.caa.tar?r_file=chunklist.m3u8&r_type=application%2Fvnd.apple.mpegurl&r_range=187580416-187594514",
+      },
+      {
+        nombre: "El Show de Scooby-Doo y Scrappy-Doo S01E03",
+        url: "https://hugh.cdn.rumble.cloud/video/fwe2/46/s8/2/a/C/q/W/aCqWA.caa.tar?r_file=chunklist.m3u8&r_type=application%2Fvnd.apple.mpegurl&r_range=187200512-187214634",
+      },
+      {
+        nombre: "El Show de Scooby-Doo y Scrappy-Doo S01E04",
+        url: "https://hugh.cdn.rumble.cloud/video/fwe2/c0/s8/2/4/C/q/W/4CqWA.caa.tar?r_file=chunklist.m3u8&r_type=application%2Fvnd.apple.mpegurl&r_range=189300224-189314445",
+      },
+      {
+        nombre: "El Show de Scooby-Doo y Scrappy-Doo S01E05",
+        url: "https://hugh.cdn.rumble.cloud/video/fww1/bf/s8/2/y/E/q/W/yEqWA.caa.tar?r_file=chunklist.m3u8&r_type=application%2Fvnd.apple.mpegurl&r_range=188975104-188989310",
+      },
+      {
+        nombre: "El Show de Scooby-Doo y Scrappy-Doo S01E06",
+        url: "https://hugh.cdn.rumble.cloud/video/fww1/c1/s8/2/M/F/q/W/MFqWA.caa.tar?r_file=chunklist.m3u8&r_type=application%2Fvnd.apple.mpegurl&r_range=187073536-187087660",
+      },
+      {
+        nombre: "El Show de Scooby-Doo y Scrappy-Doo S01E07",
+        url: "https://hugh.cdn.rumble.cloud/video/fww1/6b/s8/2/0/G/q/W/0GqWA.caa.tar?r_file=chunklist.m3u8&r_type=application%2Fvnd.apple.mpegurl&r_range=188086272-188100487",
+      },
+      {
+        nombre: "El Show de Scooby-Doo y Scrappy-Doo S01E08",
+        url: "https://hugh.cdn.rumble.cloud/video/fww1/25/s8/2/K/H/q/W/KHqWA.caa.tar?r_file=chunklist.m3u8&r_type=application%2Fvnd.apple.mpegurl&r_range=188161024-188175140",
+      },
+      {
+        nombre: "El Show de Scooby-Doo y Scrappy-Doo S01E09",
+        url: "https://hugh.cdn.rumble.cloud/video/fww1/11/s8/2/m/I/q/W/mIqWA.caa.tar?r_file=chunklist.m3u8&r_type=application%2Fvnd.apple.mpegurl&r_range=188177920-188192036",
+      },
+      {
+        nombre: "El Show de Scooby-Doo y Scrappy-Doo S01E10",
+        url: "https://hugh.cdn.rumble.cloud/video/fwe2/67/s8/2/Q/J/q/W/QJqWA.caa.tar?r_file=chunklist.m3u8&r_type=application%2Fvnd.apple.mpegurl&r_range=189167616-189181823",
+      },
+      {
+        nombre: "El Show de Scooby-Doo y Scrappy-Doo S01E11",
+        url: "https://hugh.cdn.rumble.cloud/video/fwe2/5a/s8/2/6/K/q/W/6KqWA.caa.tar?r_file=chunklist.m3u8&r_type=application%2Fvnd.apple.mpegurl&r_range=188753920-188768128",
+      },
+      {
+        nombre: "El Show de Scooby-Doo y Scrappy-Doo S01E12",
+        url: "https://hugh.cdn.rumble.cloud/video/fww1/0c/s8/2/u/e/A/W/ueAWA.caa.tar?r_file=chunklist.m3u8&r_type=application%2Fvnd.apple.mpegurl&r_range=188213760-188227873",
+      },
+    ],
+  },
 };
 
 // ============ CONFIGURACIÓN GLOBAL ============
