@@ -158,6 +158,64 @@ const CANALES = {
       },
     ],
   },
+    fenixmusic: {
+    nombre: "Fenix Music Banda 24/7",
+    epoch: Date.UTC(2026, 0, 1, 0, 0, 0) / 1000,
+    episodios: [
+      {
+        nombre: "Fenix Music Banda Video 01",
+        url: "https://hugh.cdn.rumble.cloud/video/fww1/7b/s8/2/q/N/A/W/qNAWA.haa.tar?r_file=chunklist.m3u8&r_type=application%2Fvnd.apple.mpegurl&r_range=115847168-115849514",
+      },
+      {
+        nombre: "Fenix Music Banda Video 03",
+        url: "https://hugh.cdn.rumble.cloud/video/fww1/cc/s8/2/e/O/A/W/eOAWA.haa.tar?r_file=chunklist.m3u8&r_type=application%2Fvnd.apple.mpegurl&r_range=108727296-108729441",
+      },
+      {
+        nombre: "Fenix Music Banda Video 04",
+        url: "https://hugh.cdn.rumble.cloud/video/fwe2/e3/s8/2/G/O/A/W/GOAWA.gaa.tar?r_file=chunklist.m3u8&r_type=application%2Fvnd.apple.mpegurl&r_range=50932224-50934167",
+      },
+      {
+        nombre: "Fenix Music Banda Video 05",
+        url: "https://hugh.cdn.rumble.cloud/video/fwe2/0e/s8/2/y/P/A/W/yPAWA.haa.tar?r_file=chunklist.m3u8&r_type=application%2Fvnd.apple.mpegurl&r_range=137678336-137681085",
+      },
+      {
+        nombre: "Fenix Music Banda Video 06",
+        url: "https://hugh.cdn.rumble.cloud/video/fww1/13/s8/2/s/R/A/W/sRAWA.haa.tar?r_file=chunklist.m3u8&r_type=application%2Fvnd.apple.mpegurl&r_range=328976384-328982814",
+      },
+      {
+        nombre: "Fenix Music Banda Video 07",
+        url: "https://hugh.cdn.rumble.cloud/video/fww1/98/s8/2/G/S/A/W/GSAWA.haa.tar?r_file=chunklist.m3u8&r_type=application%2Fvnd.apple.mpegurl&r_range=197907456-197911399",
+      },
+      {
+        nombre: "Fenix Music Banda Video 08",
+        url: "https://hugh.cdn.rumble.cloud/video/fwe2/53/s8/2/i/T/A/W/iTAWA.haa.tar?r_file=chunklist.m3u8&r_type=application%2Fvnd.apple.mpegurl&r_range=95286784-95288732",
+      },
+      {
+        nombre: "Fenix Music Banda Video 09",
+        url: "https://hugh.cdn.rumble.cloud/video/fwe2/56/s8/2/a/U/A/W/aUAWA.haa.tar?r_file=chunklist.m3u8&r_type=application%2Fvnd.apple.mpegurl&r_range=119084544-119086893",
+      },
+      {
+        nombre: "Fenix Music Banda Video 11",
+        url: "https://hugh.cdn.rumble.cloud/video/fww1/6a/s8/2/Y/U/A/W/YUAWA.haa.tar?r_file=chunklist.m3u8&r_type=application%2Fvnd.apple.mpegurl&r_range=95302144-95304094",
+      },
+      {
+        nombre: "Fenix Music Banda Video 12",
+        url: "https://hugh.cdn.rumble.cloud/video/fwe2/9e/s8/2/k/V/A/W/kVAWA.gaa.tar?r_file=chunklist.m3u8&r_type=application%2Fvnd.apple.mpegurl&r_range=50451968-50453914",
+      },
+      {
+        nombre: "Fenix Music Banda Video 13",
+        url: "https://hugh.cdn.rumble.cloud/video/fww1/56/s8/2/m/W/A/W/mWAWA.haa.tar?r_file=chunklist.m3u8&r_type=application%2Fvnd.apple.mpegurl&r_range=98011136-98013084",
+      },
+      {
+        nombre: "Fenix Music Banda Video 14",
+        url: "https://hugh.cdn.rumble.cloud/video/fwe2/8f/s8/2/a/X/A/W/aXAWA.haa.tar?r_file=chunklist.m3u8&r_type=application%2Fvnd.apple.mpegurl&r_range=117282816-117285164",
+      },
+      {
+        nombre: "Fenix Music Banda Video 16",
+        url: "https://hugh.cdn.rumble.cloud/video/fww1/0f/s8/2/Q/Y/A/W/QYAWA.haa.tar?r_file=chunklist.m3u8&r_type=application%2Fvnd.apple.mpegurl&r_range=116405248-116407595",
+      },
+    ],
+  },
 };
 
 // ============ CONFIGURACIÓN GLOBAL ============
