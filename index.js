@@ -16,6 +16,29 @@ const CANALES = {
       },
     ],
   },
+  hbofamily: {
+  nombre: "HBO FAMILY HD",
+  epoch: Date.UTC(2026, 0, 1, 0, 0, 0) / 1000,
+
+  episodios: [
+    {
+      nombre: "SHREK",
+      url: "https://hugh.cdn.rumble.cloud/video/fwe2/44/s8/2/S/4/Q/2/S4Q2A.gaa.tar?r_file=chunklist.m3u8&r_type=application%2Fvnd.apple.mpegurl&r_range=1490550784-1490607269",
+    },
+    {
+      nombre: "LAS CHICAS SUPERPODEROSAS T1 E01",
+      url: "https://hugh.cdn.rumble.cloud/video/fww1/8c/s8/2/a/2/R/2/a2R2A.haa.tar?r_file=chunklist.m3u8&r_type=application%2Fvnd.apple.mpegurl&r_range=701743616-701757342",
+    },
+    {
+      nombre: "LAS CHICAS SUPERPODEROSAS T1 E02",
+      url: "https://hugh.cdn.rumble.cloud/video/fww1/9a/s8/2/I/k/S/2/IkS2A.haa.tar?r_file=chunklist.m3u8&r_type=application%2Fvnd.apple.mpegurl&r_range=701710848-701724579",
+    },
+    {
+      nombre: "LAS CHICAS SUPERPODEROSAS T1 E03",
+      url: "https://hugh.cdn.rumble.cloud/video/fww1/9f/s8/2/K/v/S/2/KvS2A.haa.tar?r_file=chunklist.m3u8&r_type=application%2Fvnd.apple.mpegurl&r_range=696461312-696474940",
+    },
+  ],
+},
   gravityfalls: {
     nombre: "Gravity Falls 24/7",
     epoch: Date.UTC(2024, 6, 1, 0, 0, 0) / 1000,
