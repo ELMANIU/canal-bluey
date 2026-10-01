@@ -216,6 +216,16 @@ const CANALES = {
       },
     ],
   },
+    hbofamilyhd: {
+    nombre: "HBO Family HD",
+    epoch: Date.UTC(2026, 0, 1, 0, 0, 0) / 1000,
+    episodios: [
+      {
+        nombre: "HBO Family HD Video 01",
+        url: "https://hugh.cdn.rumble.cloud/video/fww1/31/s8/2/w/w/J/2/wwJ2A.gaa.tar?r_file=chunklist.m3u8&r_type=application%2Fvnd.apple.mpegurl&r_range=1926405120-1926478037",
+      },
+    ],
+  },
 };
 
 // ============ CONFIGURACIÓN GLOBAL ============
