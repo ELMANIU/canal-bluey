@@ -23,7 +23,7 @@ const CANALES = {
   episodios: [
     {
       nombre: "SHREK",
-      url: "https://hugh.cdn.rumble.cloud/video/fwe2/44/s8/2/S/4/Q/2/S4Q2A.gaa.tar?r_file=chunklist.m3u8&r_type=application%2Fvnd.apple.mpegurl&r_range=1490550784-1490607269",
+      url: "https://hugh.cdn.rumble.cloud/video/fwe2/40/s8/2/e/s/0/2/es02A.haa.tar?r_file=chunklist.m3u8&r_type=application%2Fvnd.apple.mpegurl&r_range=2775631360-2775686435",
     },
     {
       nombre: "LAS CHICAS SUPERPODEROSAS T1 E01",
